@@ -7,10 +7,12 @@
 ```python
 from src.smartmeter import Smartmeter
 
-# Authentication is automatically performed when
 sc = Smartmeter('USERNAME', 'PASSWORD')
 
 # Get a list of all metering points
-sc.get_all_metering_points()
+metering_points = sc.get_all_metering_points()
+
+for mp in metering_points:
+    sc.get_consumption_month(mp['meteringPointId'], 2022, 11)
 
 ```

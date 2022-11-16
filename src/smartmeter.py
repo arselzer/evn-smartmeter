@@ -5,6 +5,7 @@ API_LOGIN = '/orchestration/Authentication/Login'
 API_BASIC_INFO = '/orchestration/User/GetBasicInfo'
 API_GET_ACCOUNTS = '/orchestration/User/GetAccountIdByBussinespartnerId'
 API_GET_METERING_POINTS = '/orchestration/User/GetMeteringPointByAccountId'
+API_GET_CONSUMPTION_MONTH = '/orchestration/ConsumptionRecord/Month'
 
 # TODO unused endpoints as of now
 API_EXTEND_SESSION = '/orchestration/Authentication/ExtendSessionLifetime'
@@ -26,7 +27,6 @@ class Smartmeter:
 
             req = res.request
             print('Resending request', req.method, req.url, req.headers)
-            res.request.headers['Cookie'] = self.session.headers['Cookie']
 
             return self.session.send(res.request)
 
@@ -68,6 +68,14 @@ class Smartmeter:
         for account_id in accounts:
             metering_points = metering_points + self.get_metering_points_for_account(account_id)
         return metering_points
+
+    def get_consumption_month(self, meter_id, year, month):
+        response = self.session.get(API_BASE + API_GET_CONSUMPTION_MONTH,
+                                    params={'meterId': meter_id, 'year': year, 'month': month})
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise SmartmeterError
 
 class SmartmeterError(Exception):
     pass
