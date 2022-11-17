@@ -17,3 +17,8 @@ for mp in metering_points:
     sc.get_consumption_day(mp['meteringPointId'], 2022, 11, 16)
 
 ```
+
+## TODO
+
+* convert day/month data to a more readable format
+* Home Assistant integration
