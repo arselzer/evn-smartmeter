@@ -14,5 +14,6 @@ metering_points = sc.get_all_metering_points()
 
 for mp in metering_points:
     sc.get_consumption_month(mp['meteringPointId'], 2022, 11)
+    sc.get_consumption_day(mp['meteringPointId'], 2022, 11, 16)
 
 ```
