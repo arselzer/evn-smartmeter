@@ -7,12 +7,18 @@ from src.errors import SmartmeterError, SmartmeterAuthError
 
 API_BASE = 'https://smartmeter.netz-noe.at'
 API_LOGIN = '/orchestration/Authentication/Login'
-API_BASIC_INFO = '/orchestration/User/GetBasicInfo'
+API_GET_BASIC_INFO = '/orchestration/User/GetBasicInfo'
 API_GET_ACCOUNTS = '/orchestration/User/GetAccountIdByBussinespartnerId'
 API_GET_METERING_POINTS = '/orchestration/User/GetMeteringPointByAccountId'
-API_GET_CONSUMPTION_YEAR = '/orchestration/ConsumptionRecord/Year'
-API_GET_CONSUMPTION_MONTH = '/orchestration/ConsumptionRecord/Month'
+
 API_GET_CONSUMPTION_DAY = '/orchestration/ConsumptionRecord/Day'
+API_GET_CONSUMPTION_MONTH = '/orchestration/ConsumptionRecord/Month'
+API_GET_CONSUMPTION_YEAR = '/orchestration/ConsumptionRecord/Year'
+API_GET_MEAN_PROFILE_DAY = '/orchestration/ConsumptionRecord/MeanProfileDay'
+API_GET_MEAN_PROFILE_MONTH = '/orchestration/ConsumptionRecord/MeanProfileMonth'
+API_GET_MEAN_PROFILE_YEAR = '/orchestration/ConsumptionRecord/MeanProfileYear'
+# There is also a weekly endpoint (e.g. /orchestration/ConsumptionRecord/MeanProfileWeek?meterId=X&startDate=2022-11-14&endDate=2022-11-21)
+# both for the consumption and mean profile, but it doesn't offer any more information than the monthly endpoint
 
 API_EXTEND_SESSION = '/orchestration/Authentication/ExtendSessionLifetime'
 
@@ -49,7 +55,7 @@ class Smartmeter:
             raise SmartmeterAuthError(response.text)
 
     def get_basic_info(self):
-        response = self.session.get(API_BASE + API_BASIC_INFO)
+        response = self.session.get(API_BASE + API_GET_BASIC_INFO)
         if response.status_code == 200:
             return response.json()
         else:
@@ -90,19 +96,22 @@ class Smartmeter:
                            self_coverage_value, joint_tenancy_proportion_value,
                            metered_peak_demand, estimated_peak_demand)
 
-    def get_consumption_year(self, meter_id, year):
-        response = self.session.get(API_BASE + API_GET_CONSUMPTION_MONTH,
-                                    params={'meterId': meter_id, 'year': year})
+    def get_consumption_day(self, meter_id, day: date):
+        response = self.session.get(API_BASE + API_GET_CONSUMPTION_DAY,
+                                    params={'meterId': meter_id, 'day': f'{day.year}-{day.month}-{day.day}'})
         if response.status_code == 200:
             result = []
             api_result = response.json()
             times = [datetime.fromisoformat(d) if d is not None else None for d in api_result['peakDemandTimes']]
             for i, t in enumerate(times):
                 c = self._make_consumption_instance(api_result, i)
+                time_start = t - timedelta(minutes=15)
+                time_end = t
 
-                result.append(MonthlyConsumption(c.metered_value, c.estimated_value, c.grid_usage_leftover_values,
-                                                 c.self_coverage_values, c.joint_tenancy_proportion_values,
-                                                 c.metered_peak_demand, c.estimated_peak_demand, t))
+                result.append(QuarterHourlyConsumption(c.metered_value, c.estimated_value, c.grid_usage_leftover_values,
+                                                       c.self_coverage_values, c.joint_tenancy_proportion_values,
+                                                       c.metered_peak_demand, c.estimated_peak_demand,
+                                                       time_start, time_end))
             return result
         else:
             raise SmartmeterError(response.text)
@@ -124,22 +133,45 @@ class Smartmeter:
         else:
             raise SmartmeterError(response.text)
 
-    def get_consumption_day(self, meter_id, day: date):
-        response = self.session.get(API_BASE + API_GET_CONSUMPTION_DAY,
-                                    params={'meterId': meter_id, 'day': f'{day.year}-{day.month}-{day.day}'})
+    def get_consumption_year(self, meter_id, year):
+        response = self.session.get(API_BASE + API_GET_CONSUMPTION_MONTH,
+                                    params={'meterId': meter_id, 'year': year})
         if response.status_code == 200:
             result = []
             api_result = response.json()
             times = [datetime.fromisoformat(d) if d is not None else None for d in api_result['peakDemandTimes']]
             for i, t in enumerate(times):
                 c = self._make_consumption_instance(api_result, i)
-                time_start = t - timedelta(minutes=15)
-                time_end = t
 
-                result.append(QuarterHourlyConsumption(c.metered_value, c.estimated_value, c.grid_usage_leftover_values,
-                                                       c.self_coverage_values, c.joint_tenancy_proportion_values,
-                                                       c.metered_peak_demand, c.estimated_peak_demand,
-                                                       time_start, time_end))
+                result.append(MonthlyConsumption(c.metered_value, c.estimated_value, c.grid_usage_leftover_values,
+                                                 c.self_coverage_values, c.joint_tenancy_proportion_values,
+                                                 c.metered_peak_demand, c.estimated_peak_demand, t))
             return result
+        else:
+            raise SmartmeterError(response.text)
+
+    # TODO: use a descriptive class for the return values and add time ranges
+    def get_mean_profile_day(self, meter_id, day: date):
+        response = self.session.get(API_BASE + API_GET_MEAN_PROFILE_DAY,
+                                    params={'meterId': meter_id, 'day': f'{day.year}-{day.month}-{day.day}'})
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise SmartmeterError(response.text)
+
+    def get_mean_profile_month(self, meter_id, year, month):
+        response = self.session.get(API_BASE + API_GET_MEAN_PROFILE_MONTH,
+                                    params={'meterId': meter_id, 'year': year, 'month': month})
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise SmartmeterError(response.text)
+
+    def get_mean_profile_year(self, meter_id, year):
+        response = self.session.get(API_BASE + API_GET_MEAN_PROFILE_YEAR,
+                                    params={'meterId': meter_id, 'year': year})
+        if response.status_code == 200:
+            return response.json()
         else:
             raise SmartmeterError(response.text)
